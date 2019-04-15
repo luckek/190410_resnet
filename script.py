@@ -62,7 +62,7 @@ def main(argv):
         skip = kl.add([act1, bn])
         act1 = kl.Activation('relu')(skip)
 
-        # Downsampling with strided convolution
+    # Downsampling with strided convolution
     conv = kl.Conv2D(32, (3, 3), padding='same', strides=2, kernel_regularizer=kr.l2(1e-4))(act1)
     bn = kl.BatchNormalization()(conv)
     act = kl.Activation('relu')(bn)
@@ -77,7 +77,56 @@ def main(argv):
     skip_downsampled = kl.add([act1_downsampled, bn])
     act1 = kl.Activation('relu')(skip_downsampled)
 
-    act1
+    # Our code starts here:
+
+    print(act1)
+
+    for i in range(2):
+
+        conv = kl.Conv2D(32, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act1)
+        bn = kl.BatchNormalization()(conv)
+        act = kl.Activation('relu')(bn)
+
+        conv = kl.Conv2D(32, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act)
+        bn = kl.BatchNormalization()(conv)
+
+        # Skip layer addition
+        skip = kl.add([act1, bn])
+        act1 = kl.Activation('relu')(skip)
+
+    print(act1)
+
+    # Downsampling with strided convolution
+    conv = kl.Conv2D(64, (3, 3), padding='same', strides=2, kernel_regularizer=kr.l2(1e-4))(act1)
+    bn = kl.BatchNormalization()(conv)
+    act = kl.Activation('relu')(bn)
+
+    conv = kl.Conv2D(64, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act)
+    bn = kl.BatchNormalization()(conv)
+
+    # Downsampling with strided 1x1 convolution
+    act1_downsampled = kl.Conv2D(64, (1, 1), padding='same', strides=2, kernel_regularizer=kr.l2(1e-4))(act1)
+
+    # Downsampling skip layer
+    skip_downsampled = kl.add([act1_downsampled, bn])
+    act1 = kl.Activation('relu')(skip_downsampled)
+
+    print(act1)
+
+    for i in range(2):
+        conv = kl.Conv2D(64, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act1)
+        bn = kl.BatchNormalization()(conv)
+        act = kl.Activation('relu')(bn)
+
+        conv = kl.Conv2D(64, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act)
+        bn = kl.BatchNormalization()(conv)
+
+        # Skip layer addition
+        skip = kl.add([act1, bn])
+        act1 = kl.Activation('relu')(skip)
+
+
+    # Our code ends here (past here is code from Doug's notebook)
 
     gap = kl.GlobalAveragePooling2D()(act1)
     bn = kl.BatchNormalization()(gap)
@@ -91,15 +140,15 @@ def main(argv):
 
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
-    filepath = './checkpoints'
+    # filepath = './checkpoints'
 
     # Prepare callbacks for model saving and for learning rate adjustment.
-    checkpoint = kc.ModelCheckpoint(filepath=filepath, monitor='val_acc', verbose=1, save_best_only=True)
+    # checkpoint = kc.ModelCheckpoint(filepath=filepath, monitor='val_acc', verbose=1, save_best_only=True)
 
-    lr_scheduler = kc.LearningRateScheduler(lr_schedule)
+    # lr_scheduler = kc.LearningRateScheduler(lr_schedule)
 
-    model.fit(x_train, y_train, batch_size=128, epochs=100, validation_data=(x_test, y_test), shuffle=True,
-              callbacks=[checkpoint, lr_scheduler])
+    # model.fit(x_train, y_train, batch_size=128, epochs=100, validation_data=(x_test, y_test), shuffle=True,
+    #           callbacks=[checkpoint, lr_scheduler])
 
 
 if __name__ == '__main__':

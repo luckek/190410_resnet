@@ -140,15 +140,15 @@ def main(argv):
 
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
-    filepath = './checkpoints'
+    # filepath = './checkpoints'
 
     # Prepare callbacks for model saving and for learning rate adjustment.
-    checkpoint = kc.ModelCheckpoint(filepath=filepath, monitor='val_acc', verbose=1, save_best_only=True)
+    # checkpoint = kc.ModelCheckpoint(filepath=filepath, monitor='val_acc', verbose=1, save_best_only=True)
 
-    lr_scheduler = kc.LearningRateScheduler(lr_schedule)
+    # lr_scheduler = kc.LearningRateScheduler(lr_schedule)
 
-    model.fit(x_train, y_train, batch_size=128, epochs=100, validation_data=(x_test, y_test), shuffle=True,
-              callbacks=[checkpoint, lr_scheduler])
+    # model.fit(x_train, y_train, batch_size=128, epochs=100, validation_data=(x_test, y_test), shuffle=True,
+    #           callbacks=[checkpoint, lr_scheduler])
 
 
 if __name__ == '__main__':

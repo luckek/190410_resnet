@@ -8,23 +8,32 @@ import sys
 import os
 
 
-# Note the alternative method for model specification: no model.add(.), instead we 
+def lr_schedule(epoch):
+    lr = 1e-3
+    if epoch > 60:
+        lr *= 1e-3
+    print('Learning rate: ', lr)
+    return lr
+
+
+# Note the alternative method for model specification: no model.add(.), instead we
 # perform sequential operations on layers, then we will make the resulting model later.
 
 # Specify the shape of the input image
 def main(argv):
     on_gpu_server = True
-    if(on_gpu_server == True):
+    if (on_gpu_server == True):
         sys.path.append("./libs/GPUtil/GPUtil")
-        import GPUtil 
+        import GPUtil
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        os.environ["CUDA_VISIBLE_DEVICES"]=str(GPUtil.getAvailable(order = "first", limit = 1, maxLoad = .2, maxMemory=.2)[0])
-    
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(
+            GPUtil.getAvailable(order="first", limit=1, maxLoad=.2, maxMemory=.2)[0])
+
     (x_train, y_train), (x_test, y_test) = kd.cifar10.load_data()
     labels = ['airplane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
-    x_train = x_train/255.
-    x_test = x_test/255.
+    x_train = x_train / 255.
+    x_test = x_test / 255.
 
     # Convert class vectors to binary class matrices.
     N = len(labels)
@@ -36,86 +45,61 @@ def main(argv):
     inputs = kl.Input(shape=input_shape)
 
     # First convolution + BN + act
-    conv = kl.Conv2D(16,(3,3),padding='same',kernel_regularizer=kr.l2(1e-4))(inputs)
+    conv = kl.Conv2D(16, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(inputs)
     bn = kl.BatchNormalization()(conv)
     act1 = kl.Activation('relu')(bn)
 
     # Perform 3 convolution blocks
     for i in range(3):
-       conv = kl.Conv2D(16,(3,3),padding='same',kernel_regularizer=kr.l2(1e-4))(act1)
-       bn = kl.BatchNormalization()(conv)
-       act = kl.Activation('relu')(bn)
-    
-       conv = kl.Conv2D(16,(3,3),padding='same',kernel_regularizer=kr.l2(1e-4))(act)
-       bn = kl.BatchNormalization()(conv)
+        conv = kl.Conv2D(16, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act1)
+        bn = kl.BatchNormalization()(conv)
+        act = kl.Activation('relu')(bn)
 
-       # Skip layer addition
-       skip = kl.add([act1,bn])
-       act1 = kl.Activation('relu')(skip)  
+        conv = kl.Conv2D(16, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act)
+        bn = kl.BatchNormalization()(conv)
 
-    # Downsampling with strided convolution
-    conv = kl.Conv2D(32,(3,3),padding='same',strides=2,kernel_regularizer=kr.l2(1e-4))(act1)
+        # Skip layer addition
+        skip = kl.add([act1, bn])
+        act1 = kl.Activation('relu')(skip)
+
+        # Downsampling with strided convolution
+    conv = kl.Conv2D(32, (3, 3), padding='same', strides=2, kernel_regularizer=kr.l2(1e-4))(act1)
     bn = kl.BatchNormalization()(conv)
     act = kl.Activation('relu')(bn)
 
-    conv = kl.Conv2D(32,(3,3),padding='same',kernel_regularizer=kr.l2(1e-4))(act)
+    conv = kl.Conv2D(32, (3, 3), padding='same', kernel_regularizer=kr.l2(1e-4))(act)
     bn = kl.BatchNormalization()(conv)
 
     # Downsampling with strided 1x1 convolution
-    act1_downsampled = kl.Conv2D(32,(1,1),padding='same',strides=2,kernel_regularizer=kr.l2(1e-4))(act1)
+    act1_downsampled = kl.Conv2D(32, (1, 1), padding='same', strides=2, kernel_regularizer=kr.l2(1e-4))(act1)
 
     # Downsampling skip layer
-    skip_downsampled = kl.add([act1_downsampled,bn])
+    skip_downsampled = kl.add([act1_downsampled, bn])
     act1 = kl.Activation('relu')(skip_downsampled)
 
     act1
-
 
     gap = kl.GlobalAveragePooling2D()(act1)
     bn = kl.BatchNormalization()(gap)
     final_dense = kl.Dense(N)(bn)
     softmax = kl.Activation('softmax')(final_dense)
 
-
-    model = km.Model(inputs=inputs,outputs=softmax)
+    model = km.Model(inputs=inputs, outputs=softmax)
 
     # initiate adam optimizer
-    opt = keras.optimizers.rmsprop(lr=0.001,decay=1e-6)
+    opt = keras.optimizers.rmsprop(lr=0.001, decay=1e-6)
 
-    model.compile(loss='categorical_crossentropy',
-              optimizer=opt,
-              metrics=['accuracy'])
-
-    model.fit(x_train, y_train,
-          batch_size=128,
-          epochs=25,
-          validation_data=(x_test, y_test),
-          shuffle=True)
-
+    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
     filepath = './checkpoints'
 
-# Prepare callbacks for model saving and for learning rate adjustment.
-    checkpoint = kc.ModelCheckpoint(filepath=filepath,
-                             monitor='val_acc',
-                             verbose=1,
-                             save_best_only=True)
+    # Prepare callbacks for model saving and for learning rate adjustment.
+    checkpoint = kc.ModelCheckpoint(filepath=filepath, monitor='val_acc', verbose=1, save_best_only=True)
 
-
-    def lr_schedule(epoch):
-        lr = 1e-3
-        if epoch > 60:
-            lr *= 1e-3
-        print('Learning rate: ', lr)
-        return lr
     lr_scheduler = kc.LearningRateScheduler(lr_schedule)
 
-    model.fit(x_train, y_train,
-          batch_size=128,
-          epochs=100,
-          validation_data=(x_test, y_test),
-          shuffle=True,
-          callbacks=[checkpoint,lr_scheduler])
+    model.fit(x_train, y_train, batch_size=128, epochs=100, validation_data=(x_test, y_test), shuffle=True,
+              callbacks=[checkpoint, lr_scheduler])
 
 
 if __name__ == '__main__':

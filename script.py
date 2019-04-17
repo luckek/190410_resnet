@@ -26,8 +26,12 @@ def main(argv):
         sys.path.append("./libs/GPUtil/GPUtil")
         import GPUtil
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(
-            GPUtil.getAvailable(order="first", limit=1, maxLoad=.2, maxMemory=.2)[0])
+        gpus = GPUtil.getAvailable(order="first",limit=1,maxLoad=.2,maxMemory=.2)
+        if(len(gpus) > 0):
+            os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus[0])
+        else:
+            print("No free GPU")
+            sys.exit()		    
 
     (x_train, y_train), (x_test, y_test) = kd.cifar10.load_data()
     labels = ['airplane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
